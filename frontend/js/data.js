@@ -11,7 +11,7 @@ const _isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname) |
                  window.location.hostname.startsWith('192.168.');
 const API_BASE = _isLocal
   ? `http://${window.location.hostname}:5000/api`
-  : (window.__RENDER_API_URL || 'https://RENDER_BACKEND_URL_HERE') + '/api';
+  : (window.__RENDER_API_URL || 'https://floodguard-india.onrender.com') + '/api';
 
 // ── Utility: generic fetch with fallback ──
 async function apiFetch(url) {
