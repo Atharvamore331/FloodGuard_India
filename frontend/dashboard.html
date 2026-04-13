@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FloodGuard India – Dashboard</title>
+    <meta name="description"
+        content="FloodGuard India Dashboard – Real-time flood risk monitoring, weather analysis, and safety alerts for your area." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Leaflet.js for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/dashboard.css">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0ea5e9">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FloodGuard">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+
+<body class="dash-body">
+
+    <!--  SIDEBAR  -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-icon-sm">🌊</div>
+            <span class="sidebar-brand" data-i18n="brand">FloodGuard</span>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Collapse sidebar">◀</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#overview" class="nav-item active" data-section="overview">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label" data-i18n="nav_overview">Overview</span>
+            </a>
+            <a href="#map" class="nav-item" data-section="map">
+                <span class="nav-icon">🗺</span>
+                <span class="nav-label" data-i18n="nav_map">Flood Risk Map</span>
+            </a>
+            <a href="#weather" class="nav-item" data-section="weather">
+                <span class="nav-icon">🌤</span>
+                <span class="nav-label" data-i18n="nav_weather">Weather Analysis</span>
+            </a>
+            <a href="#safety" class="nav-item" data-section="safety">
+                <span class="nav-icon">🛡</span>
+                <span class="nav-label" data-i18n="nav_safety">Safety Precautions</span>
+            </a>
+            <a href="#alerts" class="nav-item" data-section="alerts">
+                <span class="nav-icon">🔔</span>
+                <span class="nav-label" data-i18n="nav_alerts">Alert Settings</span>
+                <span class="badge" id="alertBadge">3</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info" id="sidebarUser">
+                <div class="user-avatar" id="userAvatar">R</div>
+                <div class="user-details">
+                    <span class="user-name" id="userName">User</span>
+                    <span class="user-role">Subscriber</span>
+                </div>
+            </div>
+            <button class="btn-logout" id="logoutBtn" title="Logout">⎋</button>
+        </div>
+    </aside>
+
+    <!--  MAIN CONTENT  -->
+    <main class="main-content" id="mainContent">
+
+        <!-- Top Navbar -->
+        <header class="topbar">
+            <!-- Main topbar row -->
+            <div class="topbar-row">
+                <div class="topbar-left">
+                    <button class="menu-btn" id="menuBtn">☰</button>
+                    <div class="breadcrumb">
+                        <span data-i18n="brand">FloodGuard</span>
+                        <span class="sep">›</span>
+                        <span id="currentSection" data-i18n="nav_overview">Overview</span>
+                    </div>
+                </div>
+
+                <div class="topbar-center">
+                    <div class="location-chip" id="locationChip">
+                        <span class="loc-icon">📍</span>
+                        <span id="locationLabel">Detecting location...</span>
+                    </div>
+                    <!-- Live location search -->
+                    <div class="loc-search-wrap" id="locSearchWrap">
+                        <input type="text" id="locSearchInput" class="loc-search-input" placeholder="Search city, town..."
+                            autocomplete="off" />
+                        <button class="loc-search-btn" id="locSearchBtn" title="Search location">🔍</button>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Language Selector -->
+                    <div class="lang-select-wrap">
+                        <select id="langSelector" class="lang-selector" title="Select Language">
+                            <option value="en">English</option>
+                            <option value="hi">हिंदी</option>
+                            <option value="mr">मराठी</option>
+                        </select>
+                    </div>
+
+                    <!-- Alert Bell -->
+                    <button class="icon-btn" id="notifBtn" title="Notifications">
+                        🔔
+                        <span class="notif-dot" id="notifDot"></span>
+                    </button>
+
+                    <!-- Theme Toggle -->
+                    <button class="icon-btn" id="themeToggle" title="Toggle Dark/Light Mode">🌙</button>
+
+                    <!-- Mobile-only Logout Button -->
+                    <button class="mobile-logout-btn" id="mobileLogoutBtn" title="Logout">🚪 <span class="logout-label">Logout</span></button>
+                </div>
+            </div>
+
+            <!-- Mobile-only: city search bar row -->
+            <div class="mobile-city-row">
+                <div class="mobile-city-search">
+                    <span class="loc-icon">📍</span>
+                    <input type="text" id="locSearchInputMobile" class="mobile-city-input"
+                        placeholder="Search city..." autocomplete="off" />
+                    <button class="loc-search-btn mobile-city-btn" id="locSearchBtnMobile">🔍</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Notification Drawer -->
+        <div class="notif-drawer hidden" id="notifDrawer">
+            <div class="notif-header">
+                <h4 data-i18n="notifications">Notifications</h4>
+                <button onclick="document.getElementById('notifDrawer').classList.add('hidden')">✕</button>
+            </div>
+            <div class="notif-list" id="notifList"></div>
+        </div>
+
+        <!-- ── SECTION: OVERVIEW ── -->
+        <section class="dash-section active" id="section-overview">
+            <div class="section-header">
+                <h2 data-i18n="overview_title">Flood Risk Overview</h2>
+                <p class="section-sub" id="lastUpdated">Last updated: --</p>
+            </div>
+
+            <!-- Risk Banner -->
+            <div class="risk-banner" id="riskBanner">
+                <div class="risk-icon" id="riskIcon">🌊</div>
+                <div class="risk-text">
+                    <h3 id="riskLevel" data-i18n="risk_loading">Calculating risk...</h3>
+                    <p id="riskDesc">Analysing rainfall and river data for your area</p>
+                </div>
+                <div class="risk-badge" id="riskBadge">—</div>
+            </div>
+
+            <!-- Stat Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">🌧</div>
+                    <div class="stat-body">
+                        <span class="stat-label" data-i18n="rainfall">Rainfall</span>
+                        <span class="stat-value" id="statRainfall">-- mm</span>
+                        <span class="stat-trend up" id="rainfallTrend">↑ High</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🌡</div>
+                    <div class="stat-body">
+                        <span class="stat-label" data-i18n="temperature">Temperature</span>
+                        <span class="stat-value" id="statTemp">-- °C</span>
+                        <span class="stat-trend" id="tempTrend">Moderate</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💧</div>
+                    <div class="stat-body">
+                        <span class="stat-label" data-i18n="humidity">Humidity</span>
+                        <span class="stat-value" id="statHumidity">-- %</span>
+                        <span class="stat-trend" id="humidTrend">Normal</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🌬</div>
+                    <div class="stat-body">
+                        <span class="stat-label" data-i18n="wind_speed">Wind Speed</span>
+                        <span class="stat-value" id="statWind">-- km/h</span>
+                        <span class="stat-trend" id="windTrend">Calm</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-body">
+                        <span class="stat-label" data-i18n="risk_score">Risk Score</span>
+                        <span class="stat-value" id="statRisk">--/100</span>
+                        <span class="stat-trend" id="riskTrend">Calculating</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7-Day forecast strip -->
+            <div class="forecast-strip">
+                <h3 class="strip-title" data-i18n="forecast_title">7-Day Forecast</h3>
+                <div class="forecast-cards" id="forecastCards"></div>
+            </div>
+
+        </section>
+
+        <!-- ── SECTION: MAP ── -->
+        <section class="dash-section" id="section-map">
+            <div class="section-header">
+                <h2 data-i18n="nav_map">Flood Risk Map</h2>
+                <p class="section-sub" data-i18n="map_sub">Live ML flood risk across India</p>
+            </div>
+
+            <!-- Legend -->
+            <div class="map-legend">
+                <span class="legend-item"><span class="dot" style="background:#22c55e"></span> <span
+                        data-i18n="low_risk">Low Risk</span></span>
+                <span class="legend-item"><span class="dot" style="background:#f59e0b"></span> <span
+                        data-i18n="moderate_risk">Moderate Risk</span></span>
+                <span class="legend-item"><span class="dot" style="background:#f97316"></span> <span
+                        data-i18n="high_risk">High Risk</span></span>
+                <span class="legend-item"><span class="dot" style="background:#ef4444"></span> <span
+                        data-i18n="critical_risk">Critical / Flood Alert</span></span>
+            </div>
+
+            <!-- Map Layer Toggle -->
+            <div class="map-controls">
+                <button class="map-btn active" data-layer="risk" onclick="setMapLayer('risk', this)"
+                    data-i18n="flood_risk_layer">Flood Risk</button>
+            </div>
+
+            <div id="floodMap" class="flood-map"></div>
+
+            <!-- High risk zones list -->
+            <div class="zones-card">
+                <h3 data-i18n="high_risk_zones">⚠ Live High-Risk Zones</h3>
+                <div class="zones-list" id="zonesList"></div>
+            </div>
+        </section>
+
+        <!-- ── SECTION: WEATHER ── -->
+        <section class="dash-section" id="section-weather">
+            <div class="section-header">
+                <h2 data-i18n="nav_weather">Weather Analysis</h2>
+                <p class="section-sub" data-i18n="weather_sub">Comprehensive meteorological data for your region</p>
+            </div>
+
+            <div class="weather-hero" id="weatherHero">
+                <div class="weather-main">
+                    <div class="weather-emoji" id="weatherEmoji">🌤</div>
+                    <div class="weather-temp-big" id="weatherTempBig">--°C</div>
+                    <div class="weather-location" id="weatherLocation">--</div>
+                    <div class="weather-condition" id="weatherCondition">--</div>
+                </div>
+                <div class="weather-details-grid">
+                    <div class="wd-item"><span class="wd-label" data-i18n="feels_like">Feels Like</span><span
+                            class="wd-val" id="wdFeels">--°C</span></div>
+                    <div class="wd-item"><span class="wd-label" data-i18n="humidity">Humidity</span><span class="wd-val"
+                            id="wdHumidity">--%</span></div>
+                    <div class="wd-item"><span class="wd-label" data-i18n="pressure">Pressure</span><span class="wd-val"
+                            id="wdPressure">-- hPa</span></div>
+                    <div class="wd-item"><span class="wd-label" data-i18n="visibility">Visibility</span><span
+                            class="wd-val" id="wdVisibility">-- km</span></div>
+                    <div class="wd-item"><span class="wd-label" data-i18n="uv_index">UV Index</span><span class="wd-val"
+                            id="wdUV">--</span></div>
+                    <div class="wd-item"><span class="wd-label" data-i18n="dew_point">Dew Point</span><span
+                            class="wd-val" id="wdDew">--°C</span></div>
+                </div>
+            </div>
+
+            <!-- Wind + Humidity Charts -->
+            <div class="two-col-charts">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 data-i18n="hourly_rainfall">24h Rainfall Intensity</h3>
+                    </div>
+                    <canvas id="hourlyChart" height="200"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 data-i18n="wind_rose">Wind & Humidity Trend</h3>
+                    </div>
+                    <canvas id="windChart" height="200"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ── SECTION: SAFETY ── -->
+        <section class="dash-section" id="section-safety">
+            <div class="section-header">
+                <h2 data-i18n="nav_safety">Safety Precautions</h2>
+                <p class="section-sub" data-i18n="safety_sub">Guidelines to stay safe during flood events</p>
+            </div>
+
+            <!-- Alert Level Selector -->
+            <div class="alert-level-tabs">
+                <button class="alt-tab active" data-level="low" onclick="showSafety('low', this)">🟢 <span
+                        data-i18n="low_risk">Low Risk</span></button>
+                <button class="alt-tab" data-level="moderate" onclick="showSafety('moderate', this)">🟡 <span
+                        data-i18n="moderate_risk">Moderate</span></button>
+                <button class="alt-tab" data-level="high" onclick="showSafety('high', this)">🟠 <span
+                        data-i18n="high_risk">High Risk</span></button>
+                <button class="alt-tab" data-level="critical" onclick="showSafety('critical', this)">🔴 <span
+                        data-i18n="critical_risk">Critical</span></button>
+            </div>
+
+            <div class="safety-grid" id="safetyGrid"></div>
+
+            <!-- Emergency Contacts -->
+            <div class="emergency-card">
+                <h3>📞 <span data-i18n="emergency_contacts">Emergency Contacts</span></h3>
+                <div class="contact-grid">
+                    <div class="contact-item"><span class="contact-icon">🚒</span><span class="contact-name">Fire
+                            Brigade</span><a href="tel:101" class="contact-num">101</a></div>
+                    <div class="contact-item"><span class="contact-icon">🚑</span><span class="contact-name">Ambulance /
+                            Medical</span><a href="tel:108" class="contact-num">108</a></div>
+                    <div class="contact-item"><span class="contact-icon">🚔</span><span
+                            class="contact-name">Police</span><a href="tel:100" class="contact-num">100</a></div>
+                    <div class="contact-item"><span class="contact-icon">⛑</span><span class="contact-name">NDRF
+                            Helpline</span><a href="tel:9711077372" class="contact-num">9711077372</a></div>
+                    <div class="contact-item"><span class="contact-icon">🆘</span><span class="contact-name">Disaster
+                            Management</span><a href="tel:1078" class="contact-num">1078</a></div>
+                    <div class="contact-item"><span class="contact-icon">💧</span><span class="contact-name">Flood
+                            Control Room</span><a href="tel:1800-180-5999" class="contact-num">1800-180-5999</a></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── SECTION: ALERTS ── -->
+        <section class="dash-section" id="section-alerts">
+            <div class="section-header">
+                <h2 data-i18n="nav_alerts">Alert & Notification Settings</h2>
+                <p class="section-sub" data-i18n="alerts_sub">Manage how you receive flood warnings</p>
+            </div>
+
+            <!-- Current Active Alerts -->
+            <div class="active-alerts-card" id="activeAlertsCard">
+                <div
+                    style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+                    <h3 style="margin:0;">🚨 <span data-i18n="active_alerts">Active Alerts</span></h3>
+                    <span
+                        style="font-size:.75rem;color:var(--text3);background:var(--surface2);padding:.25rem .7rem;border-radius:1rem;border:1px solid var(--border);">
+                        📡 Live ML prediction for current city
+                    </span>
+                </div>
+                <div id="activeAlertsList"></div>
+                <p
+                    style="font-size:.75rem;color:var(--text3);margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--border);">
+                    ℹ The Flood Risk Map uses <strong>live ML prediction</strong> from current weather conditions.
+                </p>
+            </div>
+
+            <div class="alerts-layout">
+                <div class="alerts-main">
+                    <!-- Notification Settings -->
+                    <div class="settings-card settings-card--pro">
+                        <div class="settings-headline">
+                            <h3>⚙ <span data-i18n="notification_pref">Notification Preferences</span></h3>
+                            <span class="settings-headline-tag">Managed Delivery</span>
+                        </div>
+
+                        <div class="alert-channel-grid">
+                            <article class="alert-channel-card">
+                                <div class="channel-top">
+                                    <div class="setting-info">
+                                        <span class="setting-title">📧 <span data-i18n="email_alerts">Email Alerts</span></span>
+                                        <span class="setting-desc" data-i18n="email_desc">Receive flood warnings via email</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="toggleEmail" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="email-config" id="emailConfig">
+                                    <input type="email" id="alertEmail" class="config-input" placeholder="Login email will be used" readonly />
+                                </div>
+                            </article>
+
+                            <article class="alert-channel-card">
+                                <div class="channel-top">
+                                    <div class="setting-info">
+                                        <span class="setting-title">📱 <span data-i18n="sms_alerts">SMS Alerts</span></span>
+                                        <span class="setting-desc" data-i18n="sms_desc">Get instant SMS during critical floods</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="toggleSMS" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="sms-config" id="smsConfig">
+                                    <div class="phone-input-wrap">
+                                        <span class="phone-prefix">+91</span>
+                                        <input type="tel" id="alertPhone" class="config-input" placeholder="9876543210"
+                                            maxlength="10" />
+                                    </div>
+                                    <button class="btn-sm-primary" onclick="saveSMSAlert()">Save Number</button>
+                                </div>
+                            </article>
+
+                            <article class="alert-channel-card">
+                                <div class="channel-top">
+                                    <div class="setting-info">
+                                        <span class="setting-title">🔔 <span data-i18n="browser_alerts">Browser Notifications</span></span>
+                                        <span class="setting-desc" data-i18n="browser_desc">Real-time alerts in your browser</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="toggleBrowser">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <p class="channel-note">Enable for instant on-screen warnings while FloodGuard is open.</p>
+                            </article>
+
+                            <!-- 🚨 Buzzer & Vibration Card -->
+                            <article class="alert-channel-card" style="border-left: 3px solid #ef4444;">
+                                <div class="channel-top">
+                                    <div class="setting-info">
+                                        <span class="setting-title">🚨 Buzzer &amp; Vibration</span>
+                                        <span class="setting-desc">Alarm siren + phone vibration on flood alert</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="toggleBuzzer" checked
+                                            onchange="saveAlertPref('buzzerEnabled', this.checked); showToast(this.checked ? '🚨 Buzzer enabled' : 'Buzzer disabled', this.checked ? 'success' : 'info')">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <p class="channel-note">
+                                    🔊 Plays a <strong>flood siren</strong> and <strong>vibrates</strong> your phone when risk threshold is met.
+                                    Vibration works on Android. Sound works on all devices.
+                                </p>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="alerts-side">
+                    <div class="settings-card threshold-card">
+                        <h4>⚠ <span data-i18n="alert_threshold">Alert Threshold</span></h4>
+                        <p class="setting-desc" data-i18n="threshold_desc">Send alerts when risk is at or above:</p>
+                        <div class="threshold-row">
+                            <input type="range" id="thresholdRange" min="1" max="4" step="1" value="2"
+                                class="threshold-slider">
+                            <span class="threshold-label" id="thresholdLabel">Moderate</span>
+                        </div>
+                        <div class="threshold-levels">
+                            <span class="level-chip low">Low</span>
+                            <span class="level-chip moderate">Moderate</span>
+                            <span class="level-chip high">High</span>
+                            <span class="level-chip critical">Critical</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-card test-card">
+                        <h4 data-i18n="test_alert">Send Test Alert</h4>
+                        <p class="setting-desc">Validate each channel after configuration.</p>
+                        <div class="test-btns">
+                            <button class="btn-outline-sm" onclick="sendTestEmail()">📧 Test Email</button>
+                            <button class="btn-outline-sm" onclick="sendTestSMS()">📱 Test SMS</button>
+                            <button class="btn-outline-sm" onclick="sendTestBrowser()">🔔 Test Browser</button>
+                            <button class="btn-outline-sm" id="buzzerTestBtn"
+                                onclick="sendTestBuzzer()"
+                                style="border-color:#ef4444;color:#ef4444;">🚨 Test Buzzer</button>
+                            <button class="btn-outline-sm" onclick="stopBuzzer()"
+                                style="border-color:#6b7280;color:#6b7280;">⏹ Stop</button>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Location Access Modal -->
+    <div class="loc-modal hidden" id="locModal">
+        <div class="loc-modal-card">
+            <div class="loc-modal-icon"></div>
+            <h3>Set Your Location</h3>
+            <p>Allow location access for live data, or choose your city from the list.</p>
+
+            <div class="loc-modal-actions">
+                <button class="btn-primary" id="locAllowBtn">Allow Location</button>
+                <button class="btn-outline" id="locChooseCityBtn">Choose City</button>
+            </div>
+
+            <div class="loc-city-panel hidden" id="locCityPanel">
+                <label for="locCitySelect" style="font-size:.85rem;color:var(--text2);">Select City</label>
+                <select id="locCitySelect" class="select-field"></select>
+                <button class="btn-primary" id="locCityContinueBtn" style="width:100%;margin-top:.6rem;">Continue</button>
+            </div>
+
+            <p class="loc-modal-note" id="locModalMsg"></p>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast hidden" id="toast">
+        <span id="toastMsg"></span>
+    </div>
+
+    <!-- Sidebar overlay (mobile: tap outside to close) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile navigation">
+        <div class="mobile-nav-items">
+            <button class="mobile-nav-item active" data-section="overview" onclick="mobileNavClick(this, 'overview')">
+                <span class="mobile-nav-icon">🏠</span>
+                <span>Overview</span>
+            </button>
+            <button class="mobile-nav-item" data-section="map" onclick="mobileNavClick(this, 'map')">
+                <span class="mobile-nav-icon">🗺️</span>
+                <span>Map</span>
+            </button>
+            <button class="mobile-nav-item" data-section="weather" onclick="mobileNavClick(this, 'weather')">
+                <span class="mobile-nav-icon">🌤️</span>
+                <span>Weather</span>
+            </button>
+            <button class="mobile-nav-item" data-section="safety" onclick="mobileNavClick(this, 'safety')">
+                <span class="mobile-nav-icon">🛡️</span>
+                <span>Safety</span>
+            </button>
+            <button class="mobile-nav-item" data-section="alerts" onclick="mobileNavClick(this, 'alerts')">
+                <span class="mobile-nav-icon">🔔</span>
+                <span>Alerts</span>
+                <span class="badge-dot" id="mobileAlertDot"></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/lang.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/weather.js"></script>
+    <script src="js/safety.js"></script>
+    <script src="js/alerts.js"></script>
+    <!-- Mobile navigation & PWA -->
+    <script>
+        // Mobile bottom nav click — triggers the existing sidebar nav items
+        function mobileNavClick(btn, section) {
+            document.querySelectorAll('.mobile-nav-item').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(a => {
+                if (a.dataset.section === section) a.click();
+            });
+        }
+
+        // Sync mobile nav when sidebar nav is clicked
+        document.querySelectorAll('.nav-item').forEach(a => {
+            a.addEventListener('click', () => {
+                const sec = a.dataset.section;
+                document.querySelectorAll('.mobile-nav-item').forEach(b => {
+                    b.classList.toggle('active', b.dataset.section === sec);
+                });
+            });
+        });
+
+        // Sidebar overlay: show/hide when menuBtn is clicked (piggyback on dashboard.js)
+        // dashboard.js setupSidebar() already handles menuBtn toggle.
+        // We just need to also toggle the overlay visibility.
+        document.getElementById('menuBtn').addEventListener('click', () => {
+            const overlay = document.getElementById('sidebarOverlay');
+            const sidebar = document.getElementById('sidebar');
+            overlay.classList.toggle('active', sidebar.classList.contains('mobile-open'));
+        });
+        document.getElementById('sidebarOverlay').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('mobile-open');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+        });
+
+        // Mobile logout button
+        document.getElementById('mobileLogoutBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                sessionStorage.clear();
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Mobile city search — mirrors the desktop search bar
+        const mobileInput = document.getElementById('locSearchInputMobile');
+        const mobileBtn   = document.getElementById('locSearchBtnMobile');
+        const desktopInput = document.getElementById('locSearchInput');
+        const desktopBtn   = document.getElementById('locSearchBtn');
+
+        function fireMobileSearch() {
+            const val = (mobileInput.value || '').trim();
+            if (!val) return;
+            // Copy value to desktop input and trigger its search
+            desktopInput.value = val;
+            desktopBtn.click();
+            mobileInput.blur();
+        }
+        if (mobileBtn)  mobileBtn.addEventListener('click', fireMobileSearch);
+        if (mobileInput) mobileInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') fireMobileSearch();
+        });
+        // Keep mobile input in sync when desktop search updates location label
+        const locLabel = document.getElementById('locationLabel');
+        if (locLabel) {
+            new MutationObserver(() => {
+                if (mobileInput && !mobileInput.matches(':focus')) {
+                    mobileInput.value = '';
+                    mobileInput.placeholder = locLabel.textContent || 'Search city...';
+                }
+            }).observe(locLabel, { childList: true, characterData: true, subtree: true });
+        }
+
+        // PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('[SW] Registered:', reg.scope))
+                    .catch(err => console.warn('[SW] Failed:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

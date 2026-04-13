@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FloodGuard India – Register</title>
+    <meta name="description"
+        content="Create your FloodGuard India account to receive personalized flood alerts and predictions." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/auth.css">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0ea5e9">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FloodGuard">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+
+<body class="auth-body">
+
+    <div class="wave-bg">
+        <div class="wave wave1"></div>
+        <div class="wave wave2"></div>
+        <div class="wave wave3"></div>
+    </div>
+
+    <div class="auth-container" style="padding: 2rem 0;">
+        <div class="brand">
+            <div class="brand-icon">🌊</div>
+            <h1 class="brand-title">FloodGuard India</h1>
+            <p class="brand-subtitle">Create Your Account</p>
+        </div>
+
+        <div class="auth-card">
+            <h2 class="card-title">Register</h2>
+            <p class="card-desc">Join thousands protected by real-time flood alerts</p>
+
+            <form id="registerForm" novalidate>
+                <!-- Full Name -->
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">👤</span>
+                        <input type="text" id="fullName" placeholder="Ravi Kumar" required autocomplete="name" />
+                    </div>
+                    <span class="field-error" id="nameError"></span>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="regEmail">Email Address</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">✉</span>
+                        <input type="email" id="regEmail" placeholder="you@example.com" required autocomplete="email" />
+                    </div>
+                    <span class="field-error" id="regEmailError"></span>
+                </div>
+
+                <!-- Phone -->
+                <div class="form-group">
+                    <label for="phone">Mobile Number</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">📱</span>
+                        <span class="input-prefix">+91</span>
+                        <input type="tel" id="phone" placeholder="9876543210" required autocomplete="tel" maxlength="10"
+                            style="padding-left:3.2rem" />
+                    </div>
+                    <span class="field-error" id="phoneError"></span>
+                </div>
+
+                <!-- Age -->
+                <div class="form-group">
+                    <label for="age">Age</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">🎂</span>
+                        <input type="number" id="age" placeholder="e.g. 28" min="1" max="120" required />
+                    </div>
+                    <span class="field-error" id="ageError"></span>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" id="regPassword" placeholder="Minimum 8 characters" required />
+                        <button type="button" class="toggle-pass" onclick="togglePassword('regPassword', this)"
+                            title="Show password">👁</button>
+                    </div>
+                    <div class="password-strength" id="pwStrength">
+                        <div class="strength-bar">
+                            <div class="strength-fill" id="strengthFill"></div>
+                        </div>
+                        <span id="strengthLabel">Strength</span>
+                    </div>
+                    <span class="field-error" id="regPassError"></span>
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label for="confirmPass">Confirm Password</label>
+                    <div class="input-wrap">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" id="confirmPass" placeholder="Re-enter password" required />
+                    </div>
+                    <span class="field-error" id="confirmError"></span>
+                </div>
+
+                <!-- Notifications Preference -->
+                <div class="form-group">
+                    <label class="section-label">Alert Preferences</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" id="emailAlert" checked> 📧 Email
+                            Alerts</label>
+                        <label class="checkbox-label"><input type="checkbox" id="smsAlert" checked> 📱 SMS
+                            Alerts</label>
+                    </div>
+                </div>
+
+                <!-- Terms -->
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="terms" required>
+                        I agree to the <a href="#" class="link-accent">Terms & Conditions</a> and <a href="#"
+                            class="link-accent">Privacy Policy</a>
+                    </label>
+                    <span class="field-error" id="termsError"></span>
+                </div>
+
+                <button type="submit" class="btn-primary" id="registerBtn">
+                    <span class="btn-text">Create Account</span>
+                    <span class="btn-loader hidden">⟳</span>
+                </button>
+            </form>
+
+            <p class="auth-switch">Already have an account? <a href="index.html" class="link-accent">Sign In</a></p>
+        </div>
+    </div>
+
+    <footer class="auth-footer">
+        <p>© 2026 FloodGuard India. All rights reserved.</p>
+    </footer>
+
+    <script src="js/data.js"></script>
+    <script src="js/register.js"></script>
+    <!-- PWA Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('[SW] Registered:', reg.scope))
+            .catch(err => console.warn('[SW] Registration failed:', err));
+        });
+      }
+    </script>
+</body>
+
+</html>

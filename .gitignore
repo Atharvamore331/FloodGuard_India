@@ -1,0 +1,68 @@
+# ── Virtual Environment ──
+.venv/
+venv/
+env/
+
+# ── Python Cache ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# ── Environment / Secrets ──
+local.env.ps1
+.env
+*.env
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs ──
+*.log
+api_err.txt
+api_log.txt
+api_bg_err.log
+api_bg_out.log
+api_run_err.log
+api_run_out.log
+
+# ── Large Data / Archives ──
+*.zip
+*.xlsx
+
+# ── OS Files ──
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ── Gemini / Agent ──
+.gemini/
+.sixth/
+
+# ── Flutter (separate project) ──
+flutter/
+flutter_application_1/
+
+# ── Extracted archives ──
+mini-project-complete-*_extracted/
+zip_test_extract/
+
+# ── Database exports ──
+db_export*.sql
+db_export*.txt
+db_setup.sql
+
+# ── Large generated CSV files ──
+cleaned_*.csv
+merged.csv
+flood_risk_dataset_india.csv
+flood_waterbodies_dataset.csv
+
+# ── Misc ──
+check.js
+FloodGuard_India/

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FloodGuard India – Login</title>
+  <meta name="description"
+    content="FloodGuard India – Early Flood Warning System. Login to get real-time flood predictions for your area." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/auth.css">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0ea5e9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FloodGuard">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+
+<body class="auth-body">
+
+  <!-- Background animated water waves -->
+  <div class="wave-bg">
+    <div class="wave wave1"></div>
+    <div class="wave wave2"></div>
+    <div class="wave wave3"></div>
+  </div>
+
+  <div class="auth-container">
+    <!-- Logo / Brand -->
+    <div class="brand">
+      <div class="brand-icon">🌊</div>
+      <h1 class="brand-title">FloodGuard India</h1>
+      <p class="brand-subtitle">Early Flood Warning System</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="auth-card" id="loginCard">
+      <h2 class="card-title">Welcome Back</h2>
+      <p class="card-desc">Sign in to access real-time flood predictions</p>
+
+      <form class="auth-box" id="loginForm" novalidate>
+        <div class="form-group">
+          <label for="loginEmail">Email Address</label>
+          <div class="input-wrapper">
+            <span class="input-icon">✉</span>
+            <input type="email" id="loginEmail" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <span class="field-error" id="emailError"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="loginPassword" placeholder="Enter your password" required
+              autocomplete="current-password" />
+            <button type="button" class="toggle-pass" onclick="togglePassword('loginPassword', this)"
+              title="Show/hide password">👁</button>
+          </div>
+          <span class="field-error" id="passError"></span>
+        </div>
+
+        <div class="form-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="rememberMe"> Remember me
+          </label>
+          <a href="#" class="link-text">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn-primary" id="loginBtn">
+          <span class="btn-text">Sign In</span>
+          <span class="btn-loader hidden">⟳</span>
+        </button>
+      </form>
+
+      <p class="auth-switch">Don't have an account? <a href="register.html" class="link-accent">Create one</a></p>
+    </div>
+
+    <!-- GPS Permission Overlay -->
+    <div class="overlay hidden" id="gpsOverlay">
+      <div class="overlay-card">
+        <div class="overlay-icon pulse">📍</div>
+        <h3>Location Access</h3>
+        <p>FloodGuard needs your location to provide <strong>real-time flood risk predictions</strong> for your area.
+        </p>
+        <div class="overlay-actions">
+          <button class="btn-primary" id="allowGpsBtn">Allow Location</button>
+          <button class="btn-outline" id="denyGpsBtn">Use City Selection</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- City Selection Overlay (shown when GPS denied) -->
+    <div class="overlay hidden" id="cityOverlay">
+      <div class="overlay-card">
+        <div class="overlay-icon">🔍</div>
+        <h3>Enter Your Location</h3>
+        <p>Type any city, town, district, or state to get flood risk predictions for your area.</p>
+        <div class="form-group" style="margin-top:1rem;">
+          <label for="locationSearch">Location</label>
+          <div class="input-wrap">
+            <span class="input-icon">📍</span>
+            <input type="text" id="locationSearch" placeholder="e.g. Mumbai, Nashik, Darjeeling, Goa..."
+              autocomplete="off" />
+          </div>
+          <span class="field-error" id="locationSearchError"></span>
+        </div>
+        <div class="overlay-actions">
+          <button class="btn-primary" id="confirmCityBtn" disabled>
+            <span class="btn-text">Continue to Dashboard</span>
+            <span class="btn-loader hidden">⟳</span>
+          </button>
+          <button class="btn-outline" id="backToGpsBtn">← Try GPS Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="auth-footer">
+    <p>© 2026 FloodGuard India. All rights reserved.</p>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/gps.js"></script>
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('[SW] Registered:', reg.scope))
+          .catch(err => console.warn('[SW] Registration failed:', err));
+      });
+    }
+  </script>
+</body>
+
+</html>
