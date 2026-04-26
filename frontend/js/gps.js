@@ -2,7 +2,14 @@
    FloodGuard India – GPS & Location Search Logic
    ============================================================ */
 
-const API_BASE_GPS = `http://${window.location.hostname}:5000/api`;
+// Auto-detect API host (same logic as data.js):
+// - Local dev: uses current hostname (works on PC and LAN)
+// - Production (Vercel): uses the Render backend URL
+const _isLocalGPS = ['localhost', '127.0.0.1'].includes(window.location.hostname) ||
+                    window.location.hostname.startsWith('192.168.');
+const API_BASE_GPS = _isLocalGPS
+  ? `http://${window.location.hostname}:5000/api`
+  : (window.__RENDER_API_URL || 'https://floodguard-india.onrender.com') + '/api';
 const INDIA_COUNTRY_CODE = 'IN';
 
 function isIndiaLocation(data) {
