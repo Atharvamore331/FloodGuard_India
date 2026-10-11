@@ -103,6 +103,10 @@ SMTP_USER = os.getenv("SMTP_USER", "").strip()            # â† FILL IN your
 SMTP_PASS = os.getenv("SMTP_PASS", "").strip()          # â† FILL IN your Gmail App Password
 SMTP_FROM = os.getenv("SMTP_FROM", f"FloodGuard <{SMTP_USER}>").strip()  # â† same Gmail address here
 SMTP_SECURITY = os.getenv("SMTP_SECURITY", "auto").strip().lower()  # auto | ssl | starttls
+EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "smtp").strip().lower()  # smtp | brevo
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
+BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL", "").strip()
+BREVO_FROM_NAME = os.getenv("BREVO_FROM_NAME", "FloodGuard India").strip() or "FloodGuard India"
 
 # â”€â”€ Twilio SMS Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Sign up at https://www.twilio.com/ (free trial available)
@@ -119,15 +123,19 @@ SMS_NOTIFICATIONS_ENABLED = os.getenv("SMS_NOTIFICATIONS_ENABLED", "false").stri
 # the Flood Admin via SMS (when Twilio is configured) and email.
 FLOOD_ADMIN_NAME  = os.getenv("FLOOD_ADMIN_NAME", "Flood Admin").strip() or "Flood Admin"
 FLOOD_ADMIN_PHONE = os.getenv("FLOOD_ADMIN_PHONE", "9819348071").strip() or "9819348071"
-FLOOD_ADMIN_EMAIL = os.getenv("FLOOD_ADMIN_EMAIL", SMTP_USER).strip() or SMTP_USER
+FLOOD_ADMIN_EMAIL = os.getenv("FLOOD_ADMIN_EMAIL", SMTP_USER or BREVO_FROM_EMAIL).strip() or SMTP_USER or BREVO_FROM_EMAIL
 
 # Debounce: track last admin alert per city to avoid spam
 _admin_alert_cache = {}  # city_lower -> timestamp
 _ADMIN_ALERT_COOLDOWN = 600  # seconds (10 minutes)
 
 # â”€â”€ MySQL Database Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-def smtp_configured():
-    return bool(SMTP_USER and SMTP_PASS and SMTP_HOST and SMTP_PORT)
+def email_provider_configured():
+    if EMAIL_PROVIDER == "brevo":
+        return bool(BREVO_API_KEY and BREVO_FROM_EMAIL)
+    if EMAIL_PROVIDER == "smtp":
+        return bool(SMTP_USER and SMTP_PASS and SMTP_HOST and SMTP_PORT)
+    return False
 
 
 def email_safe_text(value):
@@ -141,13 +149,57 @@ def email_safe_text(value):
     return text
 
 
-def send_email_smtp(to_email, msg):
+def send_email(to_email, msg):
     """
-    Send email using SMTP SSL (465) or STARTTLS (587).
+    Send email through Brevo's HTTPS API or SMTP.
+    Brevo's API works from Render Free, which blocks outbound SMTP ports.
+    SMTP uses SSL (465) or STARTTLS (587).
     Selection rules:
     - SMTP_SECURITY=ssl/starttls forces that mode.
     - SMTP_SECURITY=auto chooses by SMTP_PORT (465->ssl, 587->starttls, else ssl then starttls fallback).
     """
+    if EMAIL_PROVIDER == "brevo":
+        if not email_provider_configured():
+            raise RuntimeError("Brevo email is not configured. Set BREVO_API_KEY and BREVO_FROM_EMAIL.")
+
+        text_body = ""
+        html_body = ""
+        for part in msg.walk():
+            if part.get_content_maintype() == "multipart" or part.get_content_disposition() == "attachment":
+                continue
+            content_type = part.get_content_type()
+            if content_type not in ("text/plain", "text/html"):
+                continue
+            raw = part.get_payload(decode=True) or b""
+            body = raw.decode(part.get_content_charset() or "utf-8", errors="replace")
+            if content_type == "text/plain":
+                text_body = body
+            else:
+                html_body = body
+
+        payload = {
+            "sender": {"name": BREVO_FROM_NAME, "email": BREVO_FROM_EMAIL},
+            "to": [{"email": to_email}],
+            "subject": str(msg.get("Subject", "FloodGuard notification")),
+        }
+        if text_body:
+            payload["textContent"] = text_body
+        if html_body:
+            payload["htmlContent"] = html_body
+
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={"accept": "application/json", "api-key": BREVO_API_KEY, "content-type": "application/json"},
+            json=payload,
+            timeout=30,
+        )
+        if not response.ok:
+            raise RuntimeError(f"Brevo API returned HTTP {response.status_code}: {response.text[:500]}")
+        return "brevo"
+
+    if EMAIL_PROVIDER != "smtp":
+        raise RuntimeError("EMAIL_PROVIDER must be set to 'brevo' or 'smtp'.")
+
     mode = SMTP_SECURITY
     ctx = ssl.create_default_context()
 
@@ -783,7 +835,7 @@ def _send_admin_alert_delivery(city, risk, label, message, score, respect_cooldo
         if city_key:
             _admin_alert_cache[city_key] = now
 
-    if smtp_configured() and FLOOD_ADMIN_EMAIL:
+    if email_provider_configured() and FLOOD_ADMIN_EMAIL:
         try:
             risk_colors = {"low": "#22c55e", "moderate": "#f59e0b", "high": "#f97316", "critical": "#ef4444"}
             color = risk_colors.get(risk, "#ef4444")
@@ -824,12 +876,12 @@ def _send_admin_alert_delivery(city, risk, label, message, score, respect_cooldo
                 "plain",
             ))
             msg.attach(MIMEText(html_body, "html"))
-            send_email_smtp(FLOOD_ADMIN_EMAIL, msg)
+            send_email(FLOOD_ADMIN_EMAIL, msg)
             results["email_sent"] = True
         except Exception as e:
             results["errors"].append(f"Email failed: {e}")
     else:
-        results["errors"].append("Email skipped: SMTP or admin email not configured.")
+        results["errors"].append("Email skipped: email provider or admin email not configured.")
 
     if SMS_NOTIFICATIONS_ENABLED and twilio_configured():
         try:
@@ -1566,8 +1618,11 @@ def notify():
 
     # â”€â”€ Email via SMTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if email:
-        if not smtp_configured():
-            results["errors"].append("Email credentials missing. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.")
+        if not email_provider_configured():
+            if EMAIL_PROVIDER == "brevo":
+                results["errors"].append("Email credentials missing. Set BREVO_API_KEY and BREVO_FROM_EMAIL.")
+            else:
+                results["errors"].append("Email credentials missing. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.")
         else:
             try:
                 risk_colors = {
@@ -1634,7 +1689,7 @@ def notify():
                     f"Stay safe. NDRF: 9711077372 | Disaster Mgmt: 1078", "plain"))
                 msg.attach(MIMEText(html_body, "html"))
 
-                used_mode = send_email_smtp(email, msg)
+                used_mode = send_email(email, msg)
                 results["email_sent"] = True
                 results["email_mode"] = used_mode
             except Exception as e:
@@ -2067,7 +2122,7 @@ if __name__ == "__main__":
     print("=" * 50)
     print("  FloodGuard India - API Server")
     print("=" * 50)
-    print(f"[Notify] SMTP configured: {smtp_configured()}")
+    print(f"[Notify] Email provider: {EMAIL_PROVIDER}; configured: {email_provider_configured()}")
     print("Starting ML model in background thread...")
     _start_ml_background()  # Non-blocking â€“ API starts immediately
     if mysql_available:
