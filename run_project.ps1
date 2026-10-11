@@ -14,12 +14,6 @@ $registerUrl = "http://127.0.0.1:5500/register.html"
 $apiStatusUrl = "http://127.0.0.1:5000/api/status"
 $dbStatusUrl = "http://127.0.0.1:5000/api/db/status"
 
-function Get-PythonCmd {
-    if (Get-Command py -ErrorAction SilentlyContinue) { return "py -3" }
-    if (Get-Command python -ErrorAction SilentlyContinue) { return "python" }
-    throw "Python 3 not found. Install Python and retry."
-}
-
 function Get-SystemPythonExe {
     $preferred = @(
         "$env:LOCALAPPDATA\Python\pythoncore-3.14-64\python.exe",
@@ -76,15 +70,13 @@ function Ensure-Dependencies($venvPythonExe) {
         "pandas" = "pandas"
         "numpy" = "numpy"
         "requests" = "requests"
-        "sklearn" = "scikit-learn"
-        "xgboost" = "xgboost"
         "twilio" = "twilio"
         "mysql.connector" = "mysql-connector-python"
         "bcrypt" = "bcrypt"
     }
 
     foreach ($module in $checks.Keys) {
-        & $venvPythonExe -c "import $module" 2>$null
+        & $venvPythonExe -c "import $module" 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             $missing += $checks[$module]
         }
@@ -97,21 +89,32 @@ function Ensure-Dependencies($venvPythonExe) {
     }
 
     Write-Host "Installing missing dependencies..."
-    try {
-        & $venvPythonExe -m pip install --upgrade pip | Out-Null
-        & $venvPythonExe -m pip install @missing | Out-Null
-    } catch {
-        Write-Warning "Dependency installation had issues. If startup fails, connect internet and retry."
+    & $venvPythonExe -m pip install @missing
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not install required Python dependencies. Check your internet connection and retry."
+    }
+
+    foreach ($module in @("sklearn", "xgboost")) {
+        & $venvPythonExe -c "import $module" 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Optional ML package '$module' is unavailable. The API will use its rule-based risk fallback."
+        }
     }
 }
 
-$py = Get-PythonCmd
+$basePython = Get-SystemPythonExe
+if (-not $basePython) {
+    throw "Python 3 not found. Install Python and retry."
+}
 $venvDir = Join-Path $root ".venv"
 $venvPy = Join-Path $venvDir "Scripts\python.exe"
 
 if (-not (Test-Path $venvPy)) {
     Write-Host "Creating virtual environment..."
-    & cmd /c "$py -m venv .venv"
+    & $basePython -m venv $venvDir
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not create the project's Python virtual environment."
+    }
 }
 
 Ensure-Dependencies $venvPy

@@ -1,6 +1,6 @@
 param(
     [string]$SmtpUser = "floodguardindia@gmail.com",
-    [string]$SmtpPass = "cvxwyxylkjulsehb",
+    [string]$SmtpPass = "",
     [string]$SmtpFrom = "floodguardindia@gmail.com",
     #[string]$TwilioFrom = ""
 )
