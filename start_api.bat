@@ -1,35 +1,23 @@
 @echo off
-title FloodGuard India – API Server
-color 0B
-echo.
-echo  ==========================================
-echo    FloodGuard India - Starting API Server
-echo  ==========================================
-echo.
-echo  Loading ML model and CSV datasets...
-echo  (This may take 30-60 seconds on first run)
+setlocal
+title FloodGuard India - API Server
+cd /d "%~dp0"
+
+echo Starting FloodGuard India API at http://127.0.0.1:5000
+echo Press Ctrl+C to stop the server.
 echo.
 
-set PYTHON="C:\Users\Atharva More\AppData\Local\Python\bin\python3.exe"
-
-:: Check if python exists at that path
-if not exist %PYTHON% (
-    echo  [ERROR] Python not found at expected path.
-    echo  Trying python3...
-    set PYTHON=python3
+if exist ".venv\Scripts\python.exe" (
+    ".venv\Scripts\python.exe" api.py
+) else if exist "venv\Scripts\python.exe" (
+    "venv\Scripts\python.exe" api.py
+) else (
+    py -3 api.py 2>nul || python api.py
 )
 
-echo  Starting Flask server at http://127.0.0.1:5000
-echo  Keep this window open while using the frontend!
-echo.
-echo  Open frontend\index.html in Chrome after server starts.
-echo  Press Ctrl+C to stop the server.
-echo.
-echo  ==========================================
-echo.
-
-%PYTHON% api.py
-
-echo.
-echo  Server stopped. Press any key to exit.
+if errorlevel 1 (
+    echo.
+    echo API stopped with an error. Install dependencies with:
+    echo   python -m pip install -r requirements.txt
+)
 pause
