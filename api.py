@@ -88,6 +88,10 @@ if _forced_overrides:
             FORCED_CITY_PROBABILITY[name.strip().lower()] = max(0.0, min(1.0, float(value.strip())))
         except Exception:
             pass
+
+# Pune's default demo prediction is fixed at 80%; an explicit environment
+# override can still change it when needed.
+FORCED_CITY_PROBABILITY.setdefault("pune", 0.80)
 FLOOD_PRONE_LOGIN_RISKS = {
     level.strip().lower()
     for level in os.getenv("FLOOD_PRONE_LOGIN_RISKS", "moderate,high,critical").split(",")
@@ -1262,7 +1266,10 @@ def predict():
         return jsonify({"error": f"Weather unavailable: {weather['error']}"}), 503
 
     # Run hybrid probability engine unless a demo city override is configured.
-    forced_prob = FORCED_CITY_PROBABILITY.get(city.strip().lower())
+    city_key = city.strip().lower()
+    forced_prob = FORCED_CITY_PROBABILITY.get(city_key)
+    if forced_prob is None:
+        forced_prob = FORCED_CITY_PROBABILITY.get(city_key.split(",", 1)[0].strip())
     if forced_prob is not None:
         prob = max(0.0, min(1.0, float(forced_prob)))
     else:
@@ -1867,6 +1874,7 @@ def log_user_activity():
     control = str(data.get("control") or "")[:120] or None
 
     try:
+        ensure_db_schema()
         conn = get_db()
         cur = conn.cursor()
         cur.execute(
@@ -1877,7 +1885,8 @@ def log_user_activity():
         cur.close()
         conn.close()
         return jsonify({"success": True}), 201
-    except Exception:
+    except Exception as e:
+        print(f"[DB] Activity log insert failed: {e}")
         return jsonify({"success": False}), 202
 
 
@@ -1936,12 +1945,31 @@ def login():
     city     = (data.get("city") or "").strip()
     ip_addr  = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    # Demo bypass (no DB needed)
+    # Demo bypass -- create a real DB row so activity logging works
     if email == "demo@floodguard.in" and password in ("demo1234", "demo123"):
-        log_auth_event(user_id=0, action="login_success_demo", entity_id=email, ip_address=ip_addr)
-        return jsonify({"success": True, "user": {
-            "id": 0, "name": "Demo User", "email": email, "phone": "9000000000"
-        }}), 200
+        demo_user = {"id": 0, "name": "Demo User", "email": email, "phone": "9000000000"}
+        if mysql_available and bcrypt_available:
+            try:
+                ensure_db_schema()
+                conn = get_db(); cur = conn.cursor(dictionary=True)
+                cur.execute("SELECT id, name, email, phone FROM users WHERE email=%s", (email,))
+                row = cur.fetchone()
+                if row:
+                    demo_user = {"id": row["id"], "name": row["name"], "email": row["email"], "phone": row["phone"]}
+                else:
+                    pw_hash = bcrypt.hashpw("demo1234".encode(), bcrypt.gensalt(12)).decode()
+                    cur.execute(
+                        "INSERT INTO users (name, email, phone, age, password_hash, role) "
+                        "VALUES (%s, %s, %s, %s, %s, %s)",
+                        ("Demo User", email, "9000000000", None, pw_hash, "demo"),
+                    )
+                    demo_user["id"] = cur.lastrowid
+                    conn.commit()
+                cur.close(); conn.close()
+            except Exception as e:
+                print(f"[DB] Demo user DB setup failed (non-fatal): {e}")
+        log_auth_event(user_id=demo_user["id"], action="login_success_demo", entity_id=email, ip_address=ip_addr)
+        return jsonify({"success": True, "user": demo_user}), 200
 
     if not bcrypt_available:
         return jsonify({"error": "bcrypt not installed. Run: pip install bcrypt"}), 503
