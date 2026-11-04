@@ -463,6 +463,19 @@ def ensure_db_schema():
         """)
 
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS user_activity_logs (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                user_id INT UNSIGNED NULL,
+                action VARCHAR(40) NOT NULL,
+                page VARCHAR(180) NOT NULL,
+                control VARCHAR(120),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_activity_user_time (user_id, created_at),
+                CONSTRAINT fk_activity_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS user_settings (
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 user_id INT UNSIGNED NOT NULL,
@@ -1834,6 +1847,38 @@ def log_auth_event(user_id, action, entity_id, ip_address):
         conn.close()
     except Exception:
         pass
+
+
+@app.route("/api/activity", methods=["POST"])
+def log_user_activity():
+    """Store a safe summary of a signed-in user's UI action."""
+    data = request.get_json(silent=True) or {}
+    try:
+        user_id = int(data.get("user_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "valid user_id required"}), 400
+    if user_id <= 0:
+        return jsonify({"success": True}), 202
+
+    action = str(data.get("action") or "").strip().lower()
+    if action not in {"page_view", "click", "change", "submit"}:
+        return jsonify({"error": "unsupported activity action"}), 400
+    page = str(data.get("page") or "")[:180]
+    control = str(data.get("control") or "")[:120] or None
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO user_activity_logs (user_id, action, page, control) VALUES (%s, %s, %s, %s)",
+            (user_id, action, page, control),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"success": True}), 201
+    except Exception:
+        return jsonify({"success": False}), 202
 
 
 @app.route("/api/auth/register", methods=["POST"])

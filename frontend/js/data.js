@@ -13,6 +13,43 @@ const API_BASE = _isLocal
   ? `http://${window.location.hostname}:5000/api`
   : (window.__RENDER_API_URL || 'https://floodguard-india.onrender.com') + '/api';
 
+// Record meaningful signed-in UI actions without collecting field contents.
+function sendUserActivity(action, control = '') {
+  let user;
+  try { user = JSON.parse(sessionStorage.getItem('fg_user') || 'null'); } catch (_) { return; }
+  const userId = Number(user?.id);
+  if (!Number.isInteger(userId) || userId <= 0) return;
+
+  fetch(`${API_BASE}/activity`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: userId,
+      action,
+      page: window.location.pathname.split('/').pop() || 'index.html',
+      control: String(control).replace(/\s+/g, ' ').trim().slice(0, 120)
+    }),
+    keepalive: true
+  }).catch(() => {});
+}
+
+document.addEventListener('DOMContentLoaded', () => sendUserActivity('page_view'));
+document.addEventListener('click', (event) => {
+  const el = event.target.closest('button, a, [role="button"]');
+  if (!el || el.disabled) return;
+  const label = el.getAttribute('aria-label') || el.id || el.getAttribute('title') || el.getAttribute('data-action') || el.name || el.tagName;
+  sendUserActivity('click', label);
+});
+document.addEventListener('change', (event) => {
+  const el = event.target;
+  if (!el.matches('input[type="checkbox"], input[type="radio"], select')) return;
+  sendUserActivity('change', el.getAttribute('aria-label') || el.id || el.name || el.tagName);
+});
+document.addEventListener('submit', (event) => {
+  const form = event.target;
+  sendUserActivity('submit', form.id || form.getAttribute('aria-label') || 'form');
+}, true);
+
 // ── Utility: generic fetch with fallback ──
 async function apiFetch(url) {
   const res = await fetch(url);
